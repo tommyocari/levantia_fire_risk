@@ -1,0 +1,16 @@
+numpy
+pandas
+xarray
+netCDF4
+rioxarray
+rasterio
+geopandas
+scipy
+scikit-learn
+xgboost
+shap
+matplotlib
+cartopy
+folium
+streamlit
+pytest
