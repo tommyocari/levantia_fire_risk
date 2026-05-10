@@ -7,3 +7,4 @@ data/raw/*.tif
 data/processed/*.csv
 .DS_Store
 .ipynb_checkpoints/
+notebooks/
