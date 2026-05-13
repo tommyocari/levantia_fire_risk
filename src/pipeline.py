@@ -8,7 +8,6 @@ DATA    = Path(__file__).parent.parent / "data"
 OUT     = DATA / "fire_events_enriched.csv"
 
 LAND_USE_LABELS = {1: "urban", 2: "forest", 3: "shrubland", 4: "agricultural", 5: "water"}
-
 climate_vars = ["temperature", "humidity", "wind_speed", "precipitation", "ndvi"]
 nc_path      = DATA / "climate_grid.nc"
 
@@ -45,9 +44,34 @@ for v in climate_vars:
     df[f"{v}_7d"] = points_7d[v].values
 print(f"  Done -- added {[f'{v}_7d' for v in climate_vars]}")
 
+# --- 3. Fire Weather Index (FWI) ---
+# Simplified proxy: drought factor x wind amplification x precipitation suppression
+print("Computing Fire Weather Index...")
+def fwi(T, H, W, P):
+    return (T / 30) * ((100 - H) / 100) * (1 + W / 20) * np.exp(-P / 10)
+
+df["fwi"]    = fwi(df["temperature"],    df["humidity"],    df["wind_speed"],    df["precipitation"]).clip(lower=0)
+df["fwi_7d"] = fwi(df["temperature_7d"], df["humidity_7d"], df["wind_speed_7d"], df["precipitation_7d"]).clip(lower=0)
+print(f"  Done -- fwi range: [{df['fwi'].min():.2f}, {df['fwi'].max():.2f}]")
+
+# --- 4. Anomalies relative to 10-year climatological baseline ---
+# For each variable: anomaly = day-of value minus the long-term monthly mean
+print("Computing climatological anomalies...")
+climatology = climate.groupby("time.month").mean("time")  # (month=12, lat=50, lon=50)
+months      = xr.DataArray(df["date"].dt.month.values, dims="points")
+clim_points = climatology.sel(
+    month=months,
+    lat=xr.DataArray(df["lat"].values, dims="points"),
+    lon=xr.DataArray(df["lon"].values, dims="points"),
+    method="nearest"
+)
+for v in climate_vars:
+    df[f"{v}_anom"] = df[v] - clim_points[v].values
+print(f"  Done -- added {[f'{v}_anom' for v in climate_vars]}")
+
 climate.close()
 
-# --- 3. Land use join ---
+# --- 5. Land use join ---
 print("Joining land use...")
 with rasterio.open(DATA / "land_use.tif") as src:
     lu        = src.read(1)
