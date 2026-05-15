@@ -2,7 +2,7 @@
 
 End-to-end wildfire risk data pipeline for **Levantia**, a fictional Mediterranean territory. The project generates a realistic synthetic dataset, validates it, and lays the ground for a risk modelling product that non-technical stakeholders can use directly.
 
-This is a portfolio project exploring geospatial data engineering with Python.
+This is a portfolio project exploring geospatial data engineering with Python. Developed with the help of [Claude Code](https://claude.ai/code).
 
 ---
 

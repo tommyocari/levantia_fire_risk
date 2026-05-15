@@ -1,4 +1,5 @@
 import pandas as pd
+import geopandas as gpd
 import xarray as xr
 from pathlib import Path
 
@@ -43,8 +44,9 @@ df = join_land_use(df, DATA / "land_use.tif")
 print(f"  Done -- land use distribution: {df['land_use'].value_counts().to_dict()}")
 
 print("Joining socioeconomic data...")
-socio = pd.read_csv(DATA / "socioeconomic.csv")
-df = join_socioeconomic(df, socio)
+municipalities = gpd.read_file(DATA / "municipalities.geojson")
+socio          = pd.read_csv(DATA / "socioeconomic.csv")
+df = join_socioeconomic(df, municipalities, socio)
 print(f"  Done -- added population, gdp_per_capita, infrastructure_density")
 
 print("\nWriting output...")

@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+import geopandas as gpd
 import rasterio
-from scipy.spatial import KDTree
 
 
 CLIMATE_VARS    = ["temperature", "humidity", "wind_speed", "precipitation", "ndvi"]
@@ -35,12 +35,17 @@ def join_land_use(df, tif_path):
     return df
 
 
-def join_socioeconomic(df, socio):
-    """Assign each fire event to the nearest municipality centroid, then merge attributes."""
-    tree   = KDTree(socio[["lat", "lon"]].values)
-    _, idx = tree.query(df[["lat", "lon"]].values)
-    df["municipality_id"] = socio["municipality_id"].iloc[idx].values
+def join_socioeconomic(df, municipalities, socio):
+    """Assign each fire event to a municipality polygon, then merge socioeconomic attributes."""
+    fire_gdf = gpd.GeoDataFrame(
+        df,
+        geometry=gpd.points_from_xy(df["lon"], df["lat"]),
+        crs="EPSG:4326",
+    )
 
-    cols = [c for c in socio.columns if c not in ("lat", "lon", "municipality_id")]
+    joined = gpd.sjoin(fire_gdf, municipalities[["municipality_id", "geometry"]], how="left", predicate="within")
+    df["municipality_id"] = joined["municipality_id"].values
+
+    cols = [c for c in socio.columns if c != "municipality_id"]
     df   = df.merge(socio[["municipality_id"] + cols], on="municipality_id", how="left")
     return df

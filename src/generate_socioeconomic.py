@@ -6,14 +6,7 @@ SEED             = 42
 N_MUNICIPALITIES = 300
 OUT_PATH         = Path(__file__).parent.parent / "data" / "socioeconomic.csv"
 
-LAT_MIN, LAT_MAX = 36.0, 46.0
-LON_MIN, LON_MAX =  6.0, 18.0
-
 rng = np.random.default_rng(SEED)
-
-# --- Municipality centroids: random points over the domain ---
-lat_centroids = rng.uniform(LAT_MIN, LAT_MAX, size=N_MUNICIPALITIES).round(4)
-lon_centroids = rng.uniform(LON_MIN, LON_MAX, size=N_MUNICIPALITIES).round(4)
 
 # --- Population: lognormal ---
 log_pop    = rng.normal(loc=8.5, scale=1.8, size=N_MUNICIPALITIES)
@@ -30,8 +23,6 @@ infrastructure_density = np.clip(np.exp(log_infra), 0.5, 30.0).round(2)
 
 df = pd.DataFrame({
     "municipality_id":        [f"MUN_{i:03d}" for i in range(N_MUNICIPALITIES)],
-    "lat":                    lat_centroids,
-    "lon":                    lon_centroids,
     "population":             population,
     "gdp_per_capita":         gdp_per_capita,
     "infrastructure_density": infrastructure_density,
