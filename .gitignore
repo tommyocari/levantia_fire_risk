@@ -7,6 +7,6 @@ data/raw/*.tif
 data/processed/*.csv
 .DS_Store
 .ipynb_checkpoints/
-notebooks/
 notes/
+notebook_nocommit/
 data/

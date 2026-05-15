@@ -54,25 +54,51 @@ pip install -r requirements.txt
 
 ## Usage
 
-**Generate all datasets:**
+### 1. Generate all datasets
+
 ```bash
 ./generate_data.sh
 ```
 
-**Validate the data:**
+This runs all five generators in order and writes the files to `data/`.
+
+### 2. Run the enrichment pipeline
+
 ```bash
-python src/validate_data.py
+cd src
+python pipeline.py
 ```
 
-**Generate a data quality report:**
+The pipeline joins each fire event with its climate values (day-of and 7-day rolling mean), computes the Fire Weather Index and climatological anomalies, assigns land use and municipality, and writes `data/fire_events_enriched.csv`.
+
+### 3. Visualise the data
+
+Open the notebooks in Jupyter:
+
 ```bash
+jupyter notebook
+```
+
+| Notebook | Content |
+|---|---|
+| `notebooks/01_visualise_datasets.ipynb` | Raw datasets — climate grid, fire events, land use, municipalities |
+| `notebooks/02_socioeconomic_map.ipynb` | Socioeconomic attributes visualised as choropleth maps |
+
+### 4. Validate and report
+
+```bash
+python src/validate_data.py
 python src/report_data.py
 ```
 
-**Explore interactively:**
-```bash
-jupyter notebook notebooks/01_explore_datasets.ipynb
-```
+---
+
+## Milestones
+
+| Milestone | Status | Description |
+|---|---|---|
+| 1 — Dataset generation | Done | Synthetic climate grid, fire events, land use, municipalities, socioeconomic |
+| 2 — Enrichment pipeline | Done | Climate join, rolling means, FWI, anomalies, land use and municipality join |
 
 ---
 
