@@ -24,17 +24,23 @@ All spatial datasets share the same geographic extent (lat 36–46°N, lon 6–1
 ```
 levantia_fire_risk/
 ├── src/
-│   ├── generate_climate_grid.py   # generates climate_grid.nc
-│   ├── generate_fire_events.py    # generates fire_events.csv
-│   ├── generate_land_use.py       # generates land_use.tif
-│   ├── generate_socioeconomic.py  # generates socioeconomic.csv
-│   ├── validate_data.py           # checks integrity of all datasets
-│   └── report_data.py             # prints and saves a data quality report
+│   ├── generate_climate_grid.py    # generates climate_grid.nc
+│   ├── generate_fire_events.py     # generates fire_events.csv
+│   ├── generate_land_use.py        # generates land_use.tif
+│   ├── generate_socioeconomic.py   # generates socioeconomic.csv
+│   ├── generate_municipalities.py  # generates municipalities.geojson
+│   ├── pipeline.py                 # enrichment pipeline (orchestrator)
+│   ├── spatial_join.py             # climate, land use, municipality joins
+│   ├── running_average.py          # 7-day rolling mean
+│   ├── compute_fwi.py              # Fire Weather Index
+│   ├── compute_anomalies.py        # climatological anomalies
+│   ├── validate_data.py            # checks integrity of all datasets
+│   └── report_data.py              # prints and saves a data quality report
 ├── notebooks/
-│   └── 01_explore_datasets.ipynb  # interactive exploration of all datasets
-├── notes/                         # learning notes per dataset
-├── data/                          # generated files (not tracked by git)
-├── generate_data.sh               # runs all generators in order
+│   ├── 01_visualise_datasets.ipynb  # raw datasets — climate, fire events, land use, municipalities
+│   └── 02_socioeconomic_map.ipynb   # socioeconomic attributes as choropleth maps
+├── data/                            # generated files (not tracked by git)
+├── generate_data.sh                 # runs all generators in order
 └── requirements.txt
 ```
 
