@@ -3,18 +3,27 @@ import geopandas as gpd
 import xarray as xr
 from pathlib import Path
 
-from spatial_join      import join_climate, join_land_use, join_socioeconomic
-from running_average   import join_rolling
-from compute_fwi       import compute_fwi
-from compute_anomalies import compute_anomalies
+from spatial_join        import join_climate, join_land_use, join_socioeconomic
+from running_average     import join_rolling
+from compute_fwi         import compute_fwi
+from compute_anomalies   import compute_anomalies
+from negative_generation import generate_negatives
 
 DATA         = Path(__file__).parent.parent / "data"
 OUT          = DATA / "features.csv"
 CLIMATE_VARS = ["temperature", "humidity", "wind_speed", "precipitation", "ndvi"]
 
 print("Loading fire events...")
-df = pd.read_csv(DATA / "fire_events.csv", parse_dates=["date"])
-print(f"  {len(df)} events, date range: {df['date'].min().date()} -> {df['date'].max().date()}")
+df_pos = pd.read_csv(DATA / "fire_events.csv", parse_dates=["date"])
+df_pos["target"] = 1
+print(f"  {len(df_pos)} events, date range: {df_pos['date'].min().date()} -> {df_pos['date'].max().date()}")
+
+print("Generating negative samples...")
+df_neg = generate_negatives(df_pos)
+print(f"  {len(df_neg)} negative samples generated")
+
+df = pd.concat([df_pos, df_neg], ignore_index=True)
+print(f"  Total: {len(df)} rows (target=1: {df_pos['target'].sum()}, target=0: {(df['target']==0).sum()})")
 
 print("Loading climate grid...")
 nc_path = DATA / "climate_grid.nc"
