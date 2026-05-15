@@ -9,7 +9,7 @@ from compute_fwi       import compute_fwi
 from compute_anomalies import compute_anomalies
 
 DATA         = Path(__file__).parent.parent / "data"
-OUT          = DATA / "fire_events_enriched.csv"
+OUT          = DATA / "features.csv"
 CLIMATE_VARS = ["temperature", "humidity", "wind_speed", "precipitation", "ndvi"]
 
 print("Loading fire events...")
