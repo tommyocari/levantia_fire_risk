@@ -103,12 +103,12 @@ fig_roc, ax_roc = plt.subplots(figsize=(7, 6))
 fig_pr,  ax_pr  = plt.subplots(figsize=(7, 6))
 
 for name, pipe in models.items():
-    pipe.fit(X_train, y_train)
+    pipe.fit(X_train, y_train) # model training
 
     print(f"\n{name}")
-    for split_name, X_s, y_s in [("Val  (2021)", X_val, y_val), ("Test (2022-23)", X_test, y_test)]:
-        proba = pipe.predict_proba(X_s)[:, 1]
-        auc   = roc_auc_score(y_s, proba)
+    for split_name, X_s, y_s in [("Val  (2021)   ", X_val, y_val), ("Test (2022-23)", X_test, y_test)]:
+        proba = pipe.predict_proba(X_s)[:, 1] # predicted probability
+        auc   = roc_auc_score(y_s, proba) # AUC-ROC metric
         brier = brier_score_loss(y_s, proba)
         print(f"  {split_name} — AUC-ROC: {auc:.4f} | Brier: {brier:.4f}")
 

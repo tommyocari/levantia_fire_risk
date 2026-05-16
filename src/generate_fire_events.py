@@ -17,11 +17,31 @@ CAUSE_PROBS = [0.25, 0.45, 0.20, 0.10]
 
 rng = np.random.default_rng(SEED)
 
-# --- Dates: seasonal bias toward summer (July-August peak) ---
+# --- Dates: weighted by actual daily fire risk from the climate grid ---
 all_days = pd.date_range(START, END, freq="D")
-doy      = np.array([d.timetuple().tm_yday for d in all_days])
-weights  = np.exp(-0.5 * ((doy - 210) / 60) ** 2)
-weights /= weights.sum()
+
+_climate_risk = xr.open_dataset(CLIMATE_PATH)[["temperature", "humidity", "wind_speed", "precipitation"]].load()
+daily_temp    = _climate_risk["temperature"].mean(["lat", "lon"]).values
+daily_hum     = _climate_risk["humidity"].mean(["lat", "lon"]).values
+daily_wind    = _climate_risk["wind_speed"].mean(["lat", "lon"]).values
+daily_precip  = _climate_risk["precipitation"].mean(["lat", "lon"]).values
+_climate_risk.close()
+
+def _norm(x):
+    return (x - x.min()) / (x.max() - x.min() + 1e-9)
+
+daily_risk = (
+    _norm(daily_temp) ** 2
+    * (1 - _norm(daily_hum)) ** 2
+    * (1 + _norm(daily_wind))
+    * (1 - _norm(daily_precip))
+)
+
+# Zero out winter months: fires only in April-October
+months = np.array([d.month for d in all_days])
+daily_risk[~np.isin(months, range(4, 11))] = 0.0
+
+weights     = daily_risk / daily_risk.sum()
 event_dates = rng.choice(all_days, size=N_EVENTS, replace=True, p=weights)
 event_dates = pd.DatetimeIndex(event_dates)
 
