@@ -45,7 +45,7 @@ levantia_fire_risk/
 │   ├── 01_visualise_datasets.ipynb      # raw datasets — climate, fire events, land use, municipalities
 │   ├── 02_socioeconomic_map.ipynb       # socioeconomic attributes as choropleth maps
 │   ├── 03_correlation_analysis.ipynb    # feature correlation heatmap and dendrogram
-│   └── 04_shap_analysis.ipynb           # SHAP values for the classifier
+│   ├── 04_shap_analysis.ipynb           # SHAP values for the classifier and regressor
 ├── data/                            # generated files (not tracked by git)
 ├── generate_data.sh                 # runs all generators in order
 └── requirements.txt
@@ -110,6 +110,13 @@ python src/report_data.py
 python src/models_fit.py
 ```
 
+### 6. Model cards and analysis
+
+| Document | Description |
+|---|---|
+| [`notes/19_model_card_classifier.md`](notes/19_model_card_classifier.md) | Model card — fire occurrence classifier (Logistic Regression) |
+| [`notes/20_model_card_regressor.md`](notes/20_model_card_regressor.md) | Model card — burned area regressor (XGBoost) |
+| [`notebooks/04_shap_analysis.ipynb`](notebooks/04_shap_analysis.ipynb) | SHAP feature importance for both models |
 
 ---
 
