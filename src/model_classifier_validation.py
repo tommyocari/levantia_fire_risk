@@ -25,11 +25,10 @@ DATA = Path(__file__).parent.parent / "data"
 DROP_COLS = ["date", "lat", "lon", "burned_area_ha", "duration_days",
              "ignition_cause", "municipality_id", "target"]
 
+# Reduced set — correlated features removed (see notes/14_feature_selection_classifier.md)
 NUMERIC_FEATURES = [
-    "temperature", "humidity", "wind_speed", "precipitation", "ndvi",
-    "temperature_7d", "humidity_7d", "wind_speed_7d", "precipitation_7d", "ndvi_7d",
-    "fwi", "fwi_7d",
-    "temperature_anom", "humidity_anom", "wind_speed_anom", "precipitation_anom", "ndvi_anom",
+    "temperature", "humidity",
+    "temperature_anom", "wind_speed_anom", "precipitation_anom",
     "population", "gdp_per_capita", "infrastructure_density",
 ]
 CATEGORICAL_FEATURES = ["land_use"]
@@ -42,7 +41,6 @@ df = pd.read_csv(DATA / "features.csv", parse_dates=["date"])
 X = df.drop(columns=DROP_COLS)
 y = df["target"]
 
-# Drop rows that still have NaN in any feature column (boundary points outside municipality coverage)
 nan_mask = X.isnull().any(axis=1)
 X, y     = X[~nan_mask], y[~nan_mask]
 dates    = df.loc[~nan_mask, "date"]
@@ -57,21 +55,18 @@ val_mask   = dates.dt.year == 2021
 X_train, y_train = X[train_mask], y[train_mask]
 X_val,   y_val   = X[val_mask],   y[val_mask]
 
+X_train = X_train[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
+X_val   = X_val[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
+
 print(f"Train : {len(X_train)} rows (2014-2020)")
 print(f"Val   : {len(X_val)}   rows (2021)")
 
 # --------------------------------------------------------------------------- #
 # Preprocessing pipeline
 # --------------------------------------------------------------------------- #
-numeric_pipe = Pipeline([
-    ("scale", StandardScaler()),
-])
-categorical_pipe = Pipeline([
-    ("encode", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-])
 preprocessor = ColumnTransformer([
-    ("num", numeric_pipe,      NUMERIC_FEATURES),
-    ("cat", categorical_pipe,  CATEGORICAL_FEATURES),
+    ("num", Pipeline([("scale", StandardScaler())]),                                             NUMERIC_FEATURES),
+    ("cat", Pipeline([("enc",   OneHotEncoder(handle_unknown="ignore", sparse_output=False))]),  CATEGORICAL_FEATURES),
 ])
 
 # --------------------------------------------------------------------------- #
@@ -100,26 +95,29 @@ models = {
 fig_roc, ax_roc = plt.subplots(figsize=(7, 6))
 fig_pr,  ax_pr  = plt.subplots(figsize=(7, 6))
 
-for name, pipe in models.items():
-    pipe.fit(X_train, y_train) # train
+val_aucs = {}
 
-    proba_val = pipe.predict_proba(X_val)[:, 1] # predict on val
-    auc       = roc_auc_score(y_val, proba_val) # compute AUC-ROC
-    brier     = brier_score_loss(y_val, proba_val) # compute Brier score
+for name, pipe in models.items():
+    pipe.fit(X_train, y_train)
+
+    proba_val    = pipe.predict_proba(X_val)[:, 1]
+    auc          = roc_auc_score(y_val, proba_val)
+    brier        = brier_score_loss(y_val, proba_val)
+    val_aucs[name] = auc
 
     print(f"\n{name}")
     print(f"  Val (2021) — AUC-ROC: {auc:.4f} | Brier: {brier:.4f}")
 
-    RocCurveDisplay.from_predictions(y_val, proba_val, name=f"{name} (AUC={auc:.3f})", ax=ax_roc) # display ROC curve
-    PrecisionRecallDisplay.from_predictions(y_val, proba_val, name=name, ax=ax_pr) # display Precision-Recall curve
+    RocCurveDisplay.from_predictions(y_val, proba_val, name=f"{name} (AUC={auc:.3f})", ax=ax_roc)
+    PrecisionRecallDisplay.from_predictions(y_val, proba_val, name=name, ax=ax_pr)
 
 ax_roc.set_title("ROC curves — fire occurrence classifier (val 2021)")
-ax_roc.plot([0, 1], [0, 1], "k--", linewidth=0.8) # reference random model
+ax_roc.plot([0, 1], [0, 1], "k--", linewidth=0.8)
 fig_roc.tight_layout()
 fig_roc.savefig(DATA.parent / "notebooks" / "roc_curves.png", dpi=150)
 
 baseline = y_val.mean()
-ax_pr.axhline(baseline, color="black", linewidth=0.8, linestyle="--", label=f"Random (precision={baseline:.2f})") # reference random model
+ax_pr.axhline(baseline, color="black", linewidth=0.8, linestyle="--", label=f"Random (precision={baseline:.2f})")
 ax_pr.legend()
 ax_pr.set_title("Precision-Recall curves — fire occurrence classifier (val 2021)")
 fig_pr.tight_layout()
@@ -127,3 +125,9 @@ fig_pr.savefig(DATA.parent / "notebooks" / "pr_curves.png", dpi=150)
 
 plt.show()
 print("\nPlots saved to notebooks/")
+
+# --------------------------------------------------------------------------- #
+# Model selection
+# --------------------------------------------------------------------------- #
+best_name = max(val_aucs, key=val_aucs.get)
+print(f"\nBest model on val (2021): {best_name} — AUC-ROC: {val_aucs[best_name]:.4f}")
