@@ -1,3 +1,4 @@
+import joblib
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -145,3 +146,11 @@ fig_pr.savefig(DATA.parent / "notebooks" / "pr_final.png", dpi=150)
 
 plt.show()
 print("\nPlots saved to notebooks/")
+
+# --------------------------------------------------------------------------- #
+# Save model
+# --------------------------------------------------------------------------- #
+models_dir = DATA.parent / "models"
+models_dir.mkdir(exist_ok=True)
+joblib.dump(best_model, models_dir / "lr_classifier.pkl")
+print(f"\nModel saved to {models_dir / 'lr_classifier.pkl'}")
