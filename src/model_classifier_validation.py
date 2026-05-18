@@ -50,17 +50,15 @@ print(f"Dropped {nan_mask.sum()} rows with missing feature values")
 print(f"Remaining — target=0: {(y == 0).sum()} | target=1: {(y == 1).sum()} | total: {len(y)}")
 
 # Temporal split — no shuffle to avoid data leakage
+# Test set (2022-2023) is kept for final evaluation only, not touched here
 train_mask = dates.dt.year <= 2020
 val_mask   = dates.dt.year == 2021
-test_mask  = dates.dt.year >= 2022
 
 X_train, y_train = X[train_mask], y[train_mask]
 X_val,   y_val   = X[val_mask],   y[val_mask]
-X_test,  y_test  = X[test_mask],  y[test_mask]
 
 print(f"Train : {len(X_train)} rows (2014-2020)")
 print(f"Val   : {len(X_val)}   rows (2021)")
-print(f"Test  : {len(X_test)}  rows (2022-2023)")
 
 # --------------------------------------------------------------------------- #
 # Preprocessing pipeline
@@ -103,26 +101,27 @@ fig_roc, ax_roc = plt.subplots(figsize=(7, 6))
 fig_pr,  ax_pr  = plt.subplots(figsize=(7, 6))
 
 for name, pipe in models.items():
-    pipe.fit(X_train, y_train) # model training
+    pipe.fit(X_train, y_train) # train
+
+    proba_val = pipe.predict_proba(X_val)[:, 1] # predict on val
+    auc       = roc_auc_score(y_val, proba_val) # compute AUC-ROC
+    brier     = brier_score_loss(y_val, proba_val) # compute Brier score
 
     print(f"\n{name}")
-    for split_name, X_s, y_s in [("Val  (2021)   ", X_val, y_val), ("Test (2022-23)", X_test, y_test)]:
-        proba = pipe.predict_proba(X_s)[:, 1] # predicted probability
-        auc   = roc_auc_score(y_s, proba) # AUC-ROC metric
-        brier = brier_score_loss(y_s, proba)
-        print(f"  {split_name} — AUC-ROC: {auc:.4f} | Brier: {brier:.4f}")
+    print(f"  Val (2021) — AUC-ROC: {auc:.4f} | Brier: {brier:.4f}")
 
-    proba_test = pipe.predict_proba(X_test)[:, 1]
-    auc_test   = roc_auc_score(y_test, proba_test)
-    RocCurveDisplay.from_predictions(y_test, proba_test, name=f"{name} (AUC={auc_test:.3f})", ax=ax_roc)
-    PrecisionRecallDisplay.from_predictions(y_test, proba_test, name=name, ax=ax_pr)
+    RocCurveDisplay.from_predictions(y_val, proba_val, name=f"{name} (AUC={auc:.3f})", ax=ax_roc) # display ROC curve
+    PrecisionRecallDisplay.from_predictions(y_val, proba_val, name=name, ax=ax_pr) # display Precision-Recall curve
 
-ax_roc.set_title("ROC curves — fire occurrence classifier")
-ax_roc.plot([0, 1], [0, 1], "k--", linewidth=0.8)
+ax_roc.set_title("ROC curves — fire occurrence classifier (val 2021)")
+ax_roc.plot([0, 1], [0, 1], "k--", linewidth=0.8) # reference random model
 fig_roc.tight_layout()
 fig_roc.savefig(DATA.parent / "notebooks" / "roc_curves.png", dpi=150)
 
-ax_pr.set_title("Precision-Recall curves — fire occurrence classifier")
+baseline = y_val.mean()
+ax_pr.axhline(baseline, color="black", linewidth=0.8, linestyle="--", label=f"Random (precision={baseline:.2f})") # reference random model
+ax_pr.legend()
+ax_pr.set_title("Precision-Recall curves — fire occurrence classifier (val 2021)")
 fig_pr.tight_layout()
 fig_pr.savefig(DATA.parent / "notebooks" / "pr_curves.png", dpi=150)
 
