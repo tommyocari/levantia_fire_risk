@@ -47,7 +47,7 @@ event_dates = pd.DatetimeIndex(event_dates)
 
 # --- Spatial location: weighted by high temperature + low humidity ---
 # Load both fields once into RAM, then select all 800 dates in one vectorised call
-climate  = xr.open_dataset(CLIMATE_PATH)[["temperature", "humidity"]].load()
+climate  = xr.open_dataset(CLIMATE_PATH)[["temperature", "humidity", "wind_speed"]].load()
 grid_lat = climate.lat.values
 grid_lon = climate.lon.values
 NY, NX   = len(grid_lat), len(grid_lon)
@@ -58,10 +58,15 @@ all_temp = climate["temperature"].sel(
 all_hum  = climate["humidity"].sel(
     time=xr.DataArray(event_dates.values, dims="points"), method="nearest"
 ).values
+all_wind = climate["wind_speed"].sel(
+    time=xr.DataArray(event_dates.values, dims="points"), method="nearest"
+).values
 
 climate.close()
 
 lats, lons = [], []
+fire_temp, fire_hum, fire_wind = [], [], []
+
 for i in range(N_EVENTS):
     temp_norm = (all_temp[i] - all_temp[i].min()) / (all_temp[i].max() - all_temp[i].min() + 1e-9)
     hum_norm  = (all_hum[i]  - all_hum[i].min())  / (all_hum[i].max()  - all_hum[i].min()  + 1e-9)
@@ -72,13 +77,22 @@ for i in range(N_EVENTS):
     lat_idx, lon_idx = np.unravel_index(flat_idx, (NY, NX))
     lats.append(round(grid_lat[lat_idx], 4))
     lons.append(round(grid_lon[lon_idx], 4))
+    fire_temp.append(all_temp[i][lat_idx, lon_idx])
+    fire_hum.append(all_hum[i][lat_idx, lon_idx])
+    fire_wind.append(all_wind[i][lat_idx, lon_idx])
 
 lats = np.array(lats)
 lons = np.array(lons)
+fire_temp = np.array(fire_temp)
+fire_hum  = np.array(fire_hum)
+fire_wind = np.array(fire_wind)
 
-# --- Burned area: lognormal (most fires small, few very large) ---
-burned_area   = np.exp(rng.normal(loc=3.9, scale=1.4, size=N_EVENTS))
-burned_area   = np.clip(burned_area, 1, 60000).round(1)
+# --- Burned area: nonlinear function of local climate at ignition ---
+# Hot + dry + windy days produce larger fires (nonlinear: squared terms)
+fire_risk = _norm(fire_temp) ** 2 * (1 - _norm(fire_hum)) ** 2 * (1 + _norm(fire_wind))
+loc        = 2.0 + 4.0 * fire_risk   # wider range: ~2.0 (low risk) to ~6.0 (high risk)
+burned_area = np.exp(rng.normal(loc=loc, scale=0.4, size=N_EVENTS))  # less noise
+burned_area = np.clip(burned_area, 1, 60000).round(1)
 
 # --- Duration: lognormal, correlated with burned area ---
 log_duration  = 0.4 * np.log(burned_area) + rng.normal(0, 0.6, N_EVENTS)

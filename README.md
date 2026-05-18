@@ -24,21 +24,28 @@ All spatial datasets share the same geographic extent (lat 36–46°N, lon 6–1
 ```
 levantia_fire_risk/
 ├── src/
-│   ├── generate_climate_grid.py    # generates climate_grid.nc
-│   ├── generate_fire_events.py     # generates fire_events.csv
-│   ├── generate_land_use.py        # generates land_use.tif
-│   ├── generate_socioeconomic.py   # generates socioeconomic.csv
-│   ├── generate_municipalities.py  # generates municipalities.geojson
-│   ├── pipeline.py                 # enrichment pipeline (orchestrator)
-│   ├── spatial_join.py             # climate, land use, municipality joins
-│   ├── running_average.py          # 7-day rolling mean
-│   ├── compute_fwi.py              # Fire Weather Index
-│   ├── compute_anomalies.py        # climatological anomalies
-│   ├── validate_data.py            # checks integrity of all datasets
-│   └── report_data.py              # prints and saves a data quality report
+│   ├── generate_climate_grid.py         # generates climate_grid.nc
+│   ├── generate_fire_events.py          # generates fire_events.csv
+│   ├── generate_land_use.py             # generates land_use.tif
+│   ├── generate_socioeconomic.py        # generates socioeconomic.csv
+│   ├── generate_municipalities.py       # generates municipalities.geojson
+│   ├── pipeline.py                      # enrichment pipeline (orchestrator)
+│   ├── spatial_join.py                  # climate, land use, municipality joins
+│   ├── running_average.py               # 7-day rolling mean
+│   ├── compute_fwi.py                   # Fire Weather Index
+│   ├── compute_anomalies.py             # climatological anomalies
+│   ├── validate_data.py                 # checks integrity of all datasets
+│   ├── report_data.py                   # prints and saves a data quality report
+│   ├── model_classifier_validation.py   # Task A — architecture selection (LR, RF, XGBoost)
+│   ├── model_classifier_final.py        # Task A — hyperparameter tuning + test evaluation
+│   ├── model_regressor_validation.py    # Task B — architecture selection (LR, XGBoost)
+│   ├── model_regressor_final.py         # Task B — hyperparameter tuning + early stopping + test
+│   └── models_fit.py                    # runs all four model scripts in order
 ├── notebooks/
-│   ├── 01_visualise_datasets.ipynb  # raw datasets — climate, fire events, land use, municipalities
-│   └── 02_socioeconomic_map.ipynb   # socioeconomic attributes as choropleth maps
+│   ├── 01_visualise_datasets.ipynb      # raw datasets — climate, fire events, land use, municipalities
+│   ├── 02_socioeconomic_map.ipynb       # socioeconomic attributes as choropleth maps
+│   ├── 03_correlation_analysis.ipynb    # feature correlation heatmap and dendrogram
+│   └── 04_shap_analysis.ipynb           # SHAP values for the classifier
 ├── data/                            # generated files (not tracked by git)
 ├── generate_data.sh                 # runs all generators in order
 └── requirements.txt
@@ -97,6 +104,13 @@ python src/validate_data.py
 python src/report_data.py
 ```
 
+### 5. Train the models
+
+```bash
+python src/models_fit.py
+```
+
+
 ---
 
 ## Milestones
@@ -105,6 +119,7 @@ python src/report_data.py
 |---|---|---|
 | 1 — Dataset generation | Done | Synthetic climate grid, fire events, land use, municipalities, socioeconomic |
 | 2 — Enrichment pipeline | Done | Climate join, rolling means, FWI, anomalies, land use and municipality join |
+| 3 — Risk models | Done | Fire occurrence classifier (LR) and burned area regressor (XGBoost) |
 
 ---
 
