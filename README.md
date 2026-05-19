@@ -42,16 +42,22 @@ levantia_fire_risk/
 │   ├── model_regressor_final.py         # Task B — hyperparameter tuning + early stopping + test
 │   ├── models_fit.py                    # runs all four model scripts in order
 │   ├── generate_data.py                 # runs all five dataset generators in order
-│   ├── risk_map_merged.py               # static risk map for a single date + GeoTIFF export
+│   ├── risk_map.py                      # risk map module (load_static_data / compute_prob_grid)
 │   ├── risk_map_animated.py             # animated risk map over a 30-day window
 │   ├── fire_events_animated.py          # animated accumulation of fire events over 2014-2023
 │   └── visualize.py                     # runs all three visualisation scripts in order
+├── dashboard/
+│   ├── app.py                           # Streamlit entry point
+│   └── utils/
+│       ├── data.py                      # cached loaders for all five datasets
+│       ├── model.py                     # load_model / compute_risk_map (with climate offsets)
+│       └── plots.py                     # risk_map_figure / fire_history_figure / report_pdf
 ├── notebooks/
 │   ├── 01_visualise_datasets.ipynb      # raw datasets — climate, fire events, land use, municipalities
 │   ├── 02_socioeconomic_map.ipynb       # socioeconomic attributes as choropleth maps
 │   ├── 03_correlation_analysis.ipynb    # feature correlation heatmap and dendrogram
 │   ├── 04_shap_analysis.ipynb           # SHAP values for the classifier and regressor
-├── data/                            # generated files (not tracked by git)
+├── data/                                # generated files (not tracked by git)
 └── requirements.txt
 ```
 
@@ -122,7 +128,21 @@ python src/visualize.py
 
 Runs all three visualisation scripts in order: static risk map (PNG + GeoTIFF), animated risk map (30-day window), and animated fire events accumulation (2014–2023).
 
-### 7. Model cards and analysis
+### 7. Launch the dashboard
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Streamlit opens the app in the browser automatically. The dashboard provides:
+
+- **Risk map** — predicted fire probability for any date in 2014–2023, with municipality borders overlaid
+- **Climate scenario** — temperature offset (0–4 °C) and humidity offset (−30–0 %) sliders to simulate warming conditions
+- **Municipality profile** — socioeconomic metrics, average risk, and historical fire count for the selected municipality
+- **Fire history chart** — fire events per year with a stable y-axis (global maximum across all municipalities)
+- **PDF export** — one-page A4 report summarising the map, profile, and fire history for the selected date and municipality
+
+### 8. Model cards and analysis
 
 | Document | Description |
 |---|---|
@@ -140,6 +160,7 @@ Runs all three visualisation scripts in order: static risk map (PNG + GeoTIFF), 
 | 2 — Enrichment pipeline | Done | Climate join, rolling means, FWI, anomalies, land use and municipality join |
 | 3 — Risk models | Done | Fire occurrence classifier (LR) and burned area regressor (XGBoost) |
 | 4 — Visualisations | Done | Static risk map, animated risk map, animated fire events accumulation |
+| 5 — Dashboard | Done | Streamlit app with risk map, municipality profile, climate scenario, PDF export |
 
 ---
 
@@ -150,3 +171,5 @@ Runs all three visualisation scripts in order: static risk map (PNG + GeoTIFF), 
 - **pandas / numpy** — tabular data and numerical generation
 - **scipy** — Gaussian spatial autocorrelation
 - **matplotlib** — visualisation
+- **streamlit** — interactive dashboard
+- **geopandas** — spatial joins and municipality boundaries
