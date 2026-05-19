@@ -7,7 +7,7 @@ import rasterio
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-DATE = "2020-02-15"  # change to any date in 2014-2023
+DATE = "2020-07-15"  # change to any date in 2014-2023
 
 DATA   = Path(__file__).parent.parent / "data"
 MODELS = Path(__file__).parent.parent / "models"
@@ -18,115 +18,120 @@ NUMERIC_FEATURES     = ["temperature", "humidity",
 CATEGORICAL_FEATURES = ["land_use"]
 LAND_USE_LABELS      = {1: "urban", 2: "forest", 3: "shrubland", 4: "agricultural", 5: "water"}
 
-# --------------------------------------------------------------------------- #
-# Load classifier
-# --------------------------------------------------------------------------- #
-clf = joblib.load(MODELS / "lr_classifier.pkl")
 
 # --------------------------------------------------------------------------- #
-# Step 1 — Climate features for every grid cell on DATE
+# Module API
 # --------------------------------------------------------------------------- #
-climate = xr.open_dataset(DATA / "climate_grid.nc")[
-    ["temperature", "humidity", "wind_speed", "precipitation"]  # ndvi not used by the classifier
-].load()
+def load_static_data(data=DATA, models=MODELS):
+    """Load everything that does not change across dates.
 
-lats = climate.lat.values   # (50,)
-lons = climate.lon.values   # (50,)
-NY, NX = len(lats), len(lons)
+    Returns a dict with: clf, climate, climatology, df_static, lats, lons, NY, NX.
+    Caller is responsible for closing static["climate"] when done.
+    """
+    clf          = joblib.load(models / "lr_classifier.pkl")
+    climate_grid = xr.open_dataset(data / "climate_grid.nc")[
+        ["temperature", "humidity", "wind_speed", "precipitation"]
+    ].load()
 
-day   = climate.sel(time=DATE, method="nearest")
-temp  = day["temperature"].values   # (50, 50)
-hum   = day["humidity"].values
-wind  = day["wind_speed"].values
-prec  = day["precipitation"].values
+    lats = climate_grid.lat.values
+    lons = climate_grid.lon.values
+    NY, NX = len(lats), len(lons)
+
+    # montly average to compute anomalies
+    monthly_avg = climate_grid.groupby("time.month").mean("time")  # (12, 50, 50)
+
+    # --- static spatial features ---
+    lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")
+    df_static = pd.DataFrame({"lat": lat_grid.ravel(), "lon": lon_grid.ravel()}) # df
+
+    # land use added to df_static
+    with rasterio.open(data / "land_use.tif") as src:
+        lu        = src.read(1)
+        transform = src.transform
+
+    rows, cols = rasterio.transform.rowcol(transform, df_static["lon"].values, df_static["lat"].values)
+    rows = np.clip(rows, 0, lu.shape[0] - 1)
+    cols = np.clip(cols, 0, lu.shape[1] - 1)
+    df_static["land_use"] = [LAND_USE_LABELS.get(int(lu[r, c]), "unknown") for r, c in zip(rows, cols)]
+
+    # socioeconomic features added to df_static via spatial join with municipalities
+    municipalities = gpd.read_file(data / "municipalities.geojson")
+    socio          = pd.read_csv(data / "socioeconomic.csv")
+
+    grid_gdf = gpd.GeoDataFrame(
+        df_static.copy(),
+        geometry=gpd.points_from_xy(df_static["lon"], df_static["lat"]),
+        crs="EPSG:4326",
+    )
+    joined = gpd.sjoin(grid_gdf, municipalities[["municipality_id", "geometry"]],
+                       how="left", predicate="within")
+    joined = joined[~joined.index.duplicated(keep="first")]
+    df_static["municipality_id"] = joined["municipality_id"].values
+    df_static = df_static.merge(
+        socio[["municipality_id", "population", "gdp_per_capita", "infrastructure_density"]],
+        on="municipality_id", how="left",
+    )
+    for col in ["population", "gdp_per_capita", "infrastructure_density"]:
+        df_static[col] = df_static[col].fillna(socio[col].median())
+
+    # return
+    return {
+        "clf":          clf,
+        "climate_grid": climate_grid,
+        "monthly_avg":  monthly_avg,
+        "df_static":    df_static,
+        "lats":         lats,
+        "lons":         lons,
+        "NY":           NY,
+        "NX":           NX,
+    }
+
+
+def compute_prob_grid(date, static):
+    """Return a (NY, NX) array of fire probabilities for the given date."""
+    date = pd.Timestamp(date)
+    day  = static["climate_grid"].sel(time=date, method="nearest")
+    clim_m = static["monthly_avg"].sel(month=date.month)
+
+    temp = day["temperature"].values.ravel()
+    hum  = day["humidity"].values.ravel()
+    wind = day["wind_speed"].values.ravel()
+    prec = day["precipitation"].values.ravel()
+
+    df = static["df_static"].copy()
+    df["temperature"]        = temp
+    df["humidity"]           = hum
+    df["temperature_anom"]   = temp - clim_m["temperature"].values.ravel()
+    df["wind_speed_anom"]    = wind - clim_m["wind_speed"].values.ravel()
+    df["precipitation_anom"] = prec - clim_m["precipitation"].values.ravel()
+
+    # compute fire probability with the classifier
+    prob = static["clf"].predict_proba(df[NUMERIC_FEATURES + CATEGORICAL_FEATURES])[:, 1]
+    return prob.reshape(static["NY"], static["NX"])
+
 
 # --------------------------------------------------------------------------- #
-# Step 2 — Anomalies: observed - long-term monthly mean for this month
+# Standalone use
 # --------------------------------------------------------------------------- #
-month      = pd.Timestamp(DATE).month
-clim_month = climate.groupby("time.month").mean("time").sel(month=month)
-temp_anom  = temp - clim_month["temperature"].values
-wind_anom  = wind - clim_month["wind_speed"].values
-prec_anom  = prec - clim_month["precipitation"].values
+if __name__ == "__main__":
+    print("Loading static data...")
+    static = load_static_data()
 
-climate.close()
+    print(f"Computing risk map for {DATE}...")
+    prob_grid = compute_prob_grid(DATE, static)
+    static["climate_grid"].close()
 
-# --------------------------------------------------------------------------- #
-# Step 3 — Build flat DataFrame: one row per grid cell
-# --------------------------------------------------------------------------- #
-lat_grid, lon_grid = np.meshgrid(lats, lons, indexing="ij")   # (50, 50)
+    print(f"Prob range: {prob_grid.min():.3f} – {prob_grid.max():.3f}  |  mean: {prob_grid.mean():.3f}")
 
-df = pd.DataFrame({
-    "lat":                lat_grid.ravel(),
-    "lon":                lon_grid.ravel(),
-    "temperature":        temp.ravel(),
-    "humidity":           hum.ravel(),
-    "temperature_anom":   temp_anom.ravel(),
-    "wind_speed_anom":    wind_anom.ravel(),
-    "precipitation_anom": prec_anom.ravel(),
-})
+    fig, ax = plt.subplots(figsize=(10, 7))
+    mesh = ax.pcolormesh(static["lons"], static["lats"], prob_grid, cmap="YlOrRd", vmin=0, vmax=1)
+    plt.colorbar(mesh, ax=ax, label="Fire probability")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.set_title(f"Predicted fire probability — {DATE}")
+    fig.tight_layout()
 
-# --------------------------------------------------------------------------- #
-# Step 4 — Land use lookup (raster)
-# --------------------------------------------------------------------------- #
-with rasterio.open(DATA / "land_use.tif") as src:
-    lu        = src.read(1)
-    transform = src.transform
-
-rows, cols = rasterio.transform.rowcol(transform, df["lon"].values, df["lat"].values)
-rows = np.clip(rows, 0, lu.shape[0] - 1)
-cols = np.clip(cols, 0, lu.shape[1] - 1)
-df["land_use"] = [LAND_USE_LABELS.get(int(lu[r, c]), "unknown") for r, c in zip(rows, cols)]
-
-# --------------------------------------------------------------------------- #
-# Step 5 — Socioeconomic join (spatial)
-# --------------------------------------------------------------------------- #
-municipalities = gpd.read_file(DATA / "municipalities.geojson")
-socio          = pd.read_csv(DATA / "socioeconomic.csv")
-
-grid_gdf = gpd.GeoDataFrame(
-    df.copy(),
-    geometry=gpd.points_from_xy(df["lon"], df["lat"]),
-    crs="EPSG:4326",
-)
-joined = gpd.sjoin(grid_gdf, municipalities[["municipality_id", "geometry"]],
-                   how="left", predicate="within")
-
-# keep first match per cell in case of duplicates from overlapping polygons
-joined = joined[~joined.index.duplicated(keep="first")]
-df["municipality_id"] = joined["municipality_id"].values
-
-df = df.merge(
-    socio[["municipality_id", "population", "gdp_per_capita", "infrastructure_density"]],
-    on="municipality_id", how="left",
-)
-
-# Cells outside all municipality polygons get NaN — fill with dataset medians
-for col in ["population", "gdp_per_capita", "infrastructure_density"]:
-    df[col] = df[col].fillna(socio[col].median())
-
-# --------------------------------------------------------------------------- #
-# Step 6 — Predict fire probability
-# --------------------------------------------------------------------------- #
-X    = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
-prob = clf.predict_proba(X)[:, 1]          # (2500,)
-prob_grid = prob.reshape(NY, NX)           # (50, 50)
-
-print(f"Date: {DATE}")
-print(f"Prob range: {prob.min():.3f} – {prob.max():.3f}  |  mean: {prob.mean():.3f}")
-
-# --------------------------------------------------------------------------- #
-# Step 7 — Plot
-# --------------------------------------------------------------------------- #
-fig, ax = plt.subplots(figsize=(10, 7))
-mesh = ax.pcolormesh(lons, lats, prob_grid, cmap="YlOrRd", vmin=0, vmax=1)
-plt.colorbar(mesh, ax=ax, label="Fire probability")
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-ax.set_title(f"Predicted fire probability — {DATE}")
-fig.tight_layout()
-
-out_path = DATA.parent / "notebooks" / f"risk_map_{DATE}.png"
-fig.savefig(out_path, dpi=150)
-plt.show()
-print(f"Saved to {out_path}")
+    out_path = DATA.parent / "notebooks" / f"risk_map_{DATE}.png"
+    fig.savefig(out_path, dpi=150)
+    plt.show()
+    print(f"Saved to {out_path}")
