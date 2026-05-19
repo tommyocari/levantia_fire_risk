@@ -20,5 +20,6 @@ def _get_static():
     return load_static_data()
 
 
-def compute_risk_map(date: str):
-    return compute_prob_grid(date, _get_static())
+@st.cache_data
+def compute_risk_map(date: str, temp_offset: float = 0.0, humidity_offset: float = 0.0):
+    return compute_prob_grid(date, _get_static(), temp_offset=temp_offset, humidity_offset=humidity_offset)

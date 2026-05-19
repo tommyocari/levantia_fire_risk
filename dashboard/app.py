@@ -7,7 +7,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent))
 from utils.model import compute_risk_map
 from utils.data import load_municipalities, load_socio, load_fires, load_muni_grid
-from utils.plots import risk_map_figure, fire_history_figure
+from utils.plots import risk_map_figure, fire_history_figure, report_pdf
 
 st.set_page_config(page_title="Fire Risk Dashboard", layout="wide")
 st.title("Wildfire Risk Map")
@@ -21,6 +21,9 @@ with st.sidebar:
         min_value=date(2014, 1, 1),
         max_value=date(2023, 12, 31),
     )
+    st.subheader("Climate scenario")
+    temp_offset     = st.slider("Temperature offset (°C)", 0,   4,   0, step=1)
+    humidity_offset = st.slider("Humidity offset (%)",    -30,  0,   0, step=5)
 
     st.header("Municipality")
     socio = load_socio()
@@ -30,7 +33,7 @@ with st.sidebar:
     )
 
 # ── Risk map ──────────────────────────────────────────────────────────────────
-prob_grid     = compute_risk_map(str(selected_date))
+prob_grid     = compute_risk_map(str(selected_date), temp_offset=temp_offset, humidity_offset=humidity_offset)
 municipalities = load_municipalities()
 
 st.pyplot(risk_map_figure(prob_grid, municipalities, selected_date))
@@ -62,3 +65,16 @@ col5.metric("Average risk today",     f"{avg_risk:.3f}")
 
 st.subheader("Fire history")
 st.pyplot(fire_history_figure(muni_fires, fires))
+
+# ── Export ────────────────────────────────────────────────────────────────────
+st.subheader("Export")
+pdf_bytes = report_pdf(
+    prob_grid, municipalities, muni_fires, fires, muni_data,
+    selected_muni, selected_date, avg_risk, temp_offset, humidity_offset,
+)
+st.download_button(
+    label="Download PDF report",
+    data=pdf_bytes,
+    file_name=f"fire_risk_{selected_muni}_{selected_date}.pdf",
+    mime="application/pdf",
+)

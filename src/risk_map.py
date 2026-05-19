@@ -87,14 +87,14 @@ def load_static_data(data=DATA, models=MODELS):
     }
 
 
-def compute_prob_grid(date, static):
+def compute_prob_grid(date, static, temp_offset=0.0, humidity_offset=0.0):
     """Return a (NY, NX) array of fire probabilities for the given date."""
     date = pd.Timestamp(date)
     day  = static["climate_grid"].sel(time=date, method="nearest")
     clim_m = static["monthly_avg"].sel(month=date.month)
 
-    temp = day["temperature"].values.ravel()
-    hum  = day["humidity"].values.ravel()
+    temp = day["temperature"].values.ravel() + temp_offset
+    hum  = day["humidity"].values.ravel()    + humidity_offset
     wind = day["wind_speed"].values.ravel()
     prec = day["precipitation"].values.ravel()
 
