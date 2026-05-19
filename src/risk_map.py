@@ -25,7 +25,7 @@ LAND_USE_LABELS      = {1: "urban", 2: "forest", 3: "shrubland", 4: "agricultura
 def load_static_data(data=DATA, models=MODELS):
     """Load everything that does not change across dates.
 
-    Returns a dict with: clf, climate, climatology, df_static, lats, lons, NY, NX.
+    Returns a dict with: clf, climate_grid, monthly_avg, df_static, lats, lons, NY, NX.
     Caller is responsible for closing static["climate"] when done.
     """
     clf          = joblib.load(models / "lr_classifier.pkl")
@@ -119,10 +119,11 @@ if __name__ == "__main__":
 
     print(f"Computing risk map for {DATE}...")
     prob_grid = compute_prob_grid(DATE, static)
-    static["climate_grid"].close()
+   
 
     print(f"Prob range: {prob_grid.min():.3f} – {prob_grid.max():.3f}  |  mean: {prob_grid.mean():.3f}")
 
+    # Visualize the risk map
     fig, ax = plt.subplots(figsize=(10, 7))
     mesh = ax.pcolormesh(static["lons"], static["lats"], prob_grid, cmap="YlOrRd", vmin=0, vmax=1)
     plt.colorbar(mesh, ax=ax, label="Fire probability")
@@ -135,3 +136,25 @@ if __name__ == "__main__":
     fig.savefig(out_path, dpi=150)
     plt.show()
     print(f"Saved to {out_path}")
+
+    # Save the risk map as GeoTIFF for use in GIS software (e.g., QGIS)
+
+    # tranform from geographical coordinates to pixel coordinates
+    transform = rasterio.transform.from_bounds(
+        west=static["lons"].min(), south=static["lats"].min(),
+        east=static["lons"].max(), north=static["lats"].max(),
+        width=static["NX"], height=static["NY"],
+    )
+
+    with rasterio.open(
+        DATA.parent / "notebooks" / f"risk_map_{DATE}.tif", "w",
+        driver="GTiff",
+        height=static["NY"], width=static["NX"],
+        count=1, # number of bands (1 in this case, since we only have the probability, not RGB for instance)
+        dtype="float32",
+        crs=rasterio.crs.CRS.from_epsg(4326),
+        transform=transform,
+    ) as dst:
+        dst.write(np.flipud(prob_grid).astype("float32"), 1) # flip vertically to match GeoTIFF convention (north on top)
+
+    static["climate_grid"].close()

@@ -41,7 +41,11 @@ levantia_fire_risk/
 │   ├── model_regressor_validation.py    # Task B — architecture selection (LR, XGBoost)
 │   ├── model_regressor_final.py         # Task B — hyperparameter tuning + early stopping + test
 │   ├── models_fit.py                    # runs all four model scripts in order
-│   └── generate_data.py                 # runs all five dataset generators in order
+│   ├── generate_data.py                 # runs all five dataset generators in order
+│   ├── risk_map_merged.py               # static risk map for a single date + GeoTIFF export
+│   ├── risk_map_animated.py             # animated risk map over a 30-day window
+│   ├── fire_events_animated.py          # animated accumulation of fire events over 2014-2023
+│   └── visualize.py                     # runs all three visualisation scripts in order
 ├── notebooks/
 │   ├── 01_visualise_datasets.ipynb      # raw datasets — climate, fire events, land use, municipalities
 │   ├── 02_socioeconomic_map.ipynb       # socioeconomic attributes as choropleth maps
@@ -110,7 +114,15 @@ python src/report_data.py
 python src/models_fit.py
 ```
 
-### 6. Model cards and analysis
+### 6. Run visualisations
+
+```bash
+python src/visualize.py
+```
+
+Runs all three visualisation scripts in order: static risk map (PNG + GeoTIFF), animated risk map (30-day window), and animated fire events accumulation (2014–2023).
+
+### 7. Model cards and analysis
 
 | Document | Description |
 |---|---|
@@ -127,6 +139,7 @@ python src/models_fit.py
 | 1 — Dataset generation | Done | Synthetic climate grid, fire events, land use, municipalities, socioeconomic |
 | 2 — Enrichment pipeline | Done | Climate join, rolling means, FWI, anomalies, land use and municipality join |
 | 3 — Risk models | Done | Fire occurrence classifier (LR) and burned area regressor (XGBoost) |
+| 4 — Visualisations | Done | Static risk map, animated risk map, animated fire events accumulation |
 
 ---
 
