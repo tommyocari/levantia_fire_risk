@@ -6,7 +6,7 @@ from pathlib import Path
 SRC = Path(__file__).parent
 
 scripts = [
-    ("Static risk map (single day)",       "risk_map_merged.py"),
+    ("Static risk map (single day)",       "risk_map.py"),
     ("Animated risk map (30-day window)",   "risk_map_animated.py"),
     ("Animated fire events (all years)",    "fire_events_animated.py"),
 ]
