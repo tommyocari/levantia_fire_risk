@@ -1,24 +1,32 @@
+import sys
+from pathlib import Path
+from datetime import date
+
 import streamlit as st
-import numpy as np
-import matplotlib.pyplot as plt
 
-st.title("🔥 WildFireWatch")
-st.write("Climate risk asessment dashboard for Levantia")
+sys.path.insert(0, str(Path(__file__).parent))
+from utils.model import compute_risk_map
+from utils.data import load_municipalities
+from utils.plots import risk_map_figure
 
-# Slider
-temperature_offset = st.slider(
-    "Temperature offset (°C)",
-    min_value=0.0,
-    max_value=4.0,
-    value=0.0,
-    step=0.5
-)
+st.set_page_config(page_title="Fire Risk Dashboard", layout="wide")
+st.title("Wildfire Risk Map")
 
-# Plot something simple
-fig, ax = plt.subplots()
-x = np.linspace(0, 10, 100)
-ax.plot(x, np.sin(x+temperature_offset))
-ax.set_title(f"Effect of +{temperature_offset}°C")
-st.pyplot(fig) # display in the app
+with st.sidebar:
+    st.header("Settings")
+    selected_date = st.date_input(
+        "Date",
+        value=date(2023, 7, 15),
+        min_value=date(2014, 1, 1),
+        max_value=date(2023, 12, 31),
+    )
 
-st.write (f"You have selected: +{temperature_offset}°C")
+prob_grid = compute_risk_map(str(selected_date))
+municipalities = load_municipalities()
+
+st.pyplot(risk_map_figure(prob_grid, municipalities, selected_date))
+
+col1, col2, col3 = st.columns(3)
+col1.metric("Min", f"{prob_grid.min():.3f}")
+col2.metric("Mean", f"{prob_grid.mean():.3f}")
+col3.metric("Max", f"{prob_grid.max():.3f}")
