@@ -40,14 +40,14 @@ levantia_fire_risk/
 │   ├── model_classifier_final.py        # Task A — hyperparameter tuning + test evaluation
 │   ├── model_regressor_validation.py    # Task B — architecture selection (LR, XGBoost)
 │   ├── model_regressor_final.py         # Task B — hyperparameter tuning + early stopping + test
-│   └── models_fit.py                    # runs all four model scripts in order
+│   ├── models_fit.py                    # runs all four model scripts in order
+│   └── generate_data.py                 # runs all five dataset generators in order
 ├── notebooks/
 │   ├── 01_visualise_datasets.ipynb      # raw datasets — climate, fire events, land use, municipalities
 │   ├── 02_socioeconomic_map.ipynb       # socioeconomic attributes as choropleth maps
 │   ├── 03_correlation_analysis.ipynb    # feature correlation heatmap and dendrogram
 │   ├── 04_shap_analysis.ipynb           # SHAP values for the classifier and regressor
 ├── data/                            # generated files (not tracked by git)
-├── generate_data.sh                 # runs all generators in order
 └── requirements.txt
 ```
 
@@ -70,7 +70,7 @@ pip install -r requirements.txt
 ### 1. Generate all datasets
 
 ```bash
-./generate_data.sh
+python src/generate_data.py
 ```
 
 This runs all five generators in order and writes the files to `data/`.
